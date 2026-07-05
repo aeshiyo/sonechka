@@ -5,107 +5,124 @@ local TweenService = game:GetService("TweenService")
 
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
+local Camera = workspace.CurrentCamera
 
--- Configuration
-local SpeedMultiplier = 3
+-- Mobile Config
 local FlySpeed = 50
+local WalkSpeed = 16
+local IsFlying = false
+local IsNoclip = false
+local IsSpeed = false
 
--- Variables
-local flying = false
-local noclip = false
-local speedEnabled = false
-local bodyVelocity, bodyGyro
-
--- UI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SofiyaMenu"
-ScreenGui.Parent = game.CoreGui
+-- UI Elements
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "SofiyaMobile"
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 200, 0, 250)
-MainFrame.Position = UDim2.new(0.5, -100, 0.5, -125)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BorderSizePixel = 0
+MainFrame.Size = UDim2.new(0.8, 0, 0.5, 0)
+MainFrame.Position = UDim2.new(0.1, 0, 0.25, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.Active = true
 MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
 
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Size = UDim2.new(1, 0, 0, 50)
 Title.Text = "SOFIYA <3"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
+Title.TextSize = 22
+Title.BackgroundTransparency = 1
 
-local function createToggle(name, callback)
-	local btn = Instance.new("TextButton", MainFrame)
-	btn.Size = UDim2.new(0.9, 0, 0, 40)
-	btn.Position = UDim2.new(0.05, 0, 0, 60 + (#MainFrame:GetChildren() - 3) * 50)
-	btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	btn.Text = name .. ": OFF"
-	btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-	btn.AutoButtonColor = false
-	
-	local state = false
-	btn.MouseButton1Click:Connect(function()
-		state = not state
-		btn.Text = name .. ": " .. (state and "ON" or "OFF")
-		btn.BackgroundColor3 = state and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(30, 30, 30)
-		callback(state)
-	end)
+-- Toggle Helpers
+local function createButton(name, text, parent, callback)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0.9, 0, 0, 50)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 20
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+    
+    local active = false
+    btn.MouseButton1Click:Connect(function()
+        active = not active
+        btn.BackgroundColor3 = active and Color3.fromRGB(0, 150, 50) or Color3.fromRGB(50, 50, 50)
+        callback(active)
+    end)
+    return btn
 end
 
--- Functions
-createToggle("Fly", function(s)
-	flying = s
-	local char = Player.Character
-	if not char then return end
-	local root = char:FindFirstChild("HumanoidRootPart")
-	if s then
-		bodyVelocity = Instance.new("BodyVelocity", root)
-		bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-		bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-		bodyGyro = Instance.new("BodyGyro", root)
-		bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-		bodyGyro.CFrame = root.CFrame
-	else
-		if bodyVelocity then bodyVelocity:Destroy() end
-		if bodyGyro then bodyGyro:Destroy() end
-	end
+-- Fly Controls (Mobile Specific)
+local FlyFrame = Instance.new("Frame", ScreenGui)
+FlyFrame.Visible = false
+FlyFrame.Size = UDim2.new(0, 120, 0, 120)
+FlyFrame.Position = UDim2.new(0.7, 0, 0.6, 0)
+FlyFrame.BackgroundTransparency = 1
+
+local UpBtn = Instance.new("TextButton", FlyFrame)
+UpBtn.Size = UDim2.new(0, 50, 0, 50)
+UpBtn.Position = UDim2.new(0, 35, 0, 0)
+UpBtn.Text = "▲"
+UpBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+
+local DownBtn = Instance.new("TextButton", FlyFrame)
+DownBtn.Size = UDim2.new(0, 50, 0, 50)
+DownBtn.Position = UDim2.new(0, 35, 0, 60)
+DownBtn.Text = "▼"
+DownBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+
+-- Core Logic
+local BV, BG
+local moveUp, moveDown = false, false
+
+UpBtn.MouseButton1Down:Connect(function() moveUp = true end)
+UpBtn.MouseButton1Up:Connect(function() moveUp = false end)
+DownBtn.MouseButton1Down:Connect(function() moveDown = true end)
+DownBtn.MouseButton1Up:Connect(function() moveDown = false end)
+
+createButton(MainFrame, "🚀 Fly", MainFrame, function(s)
+    IsFlying = s
+    FlyFrame.Visible = s
+    local char = Player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if s then
+        BV = Instance.new("BodyVelocity", hrp)
+        BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BG = Instance.new("BodyGyro", hrp)
+        BG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    else
+        if BV then BV:Destroy() end
+        if BG then BG:Destroy() end
+    end
 end)
 
-createToggle("Noclip", function(s)
-	noclip = s
-end)
+createButton(MainFrame, "👻 Noclip", MainFrame, function(s) IsNoclip = s end)
+createButton(MainFrame, "⚡ Speed", MainFrame, function(s) IsSpeed = s end)
 
-createToggle("SpeedHack", function(s)
-	speedEnabled = s
-end)
-
--- Loops
+-- Loop
 RunService.Stepped:Connect(function()
-	pcall(function()
-		local char = Player.Character
-		if not char then return end
-		local root = char:FindFirstChild("HumanoidRootPart")
-		local hum = char:FindFirstChild("Humanoid")
-		
-		if noclip then
-			for _, v in pairs(char:GetDescendants()) do
-				if v:IsA("BasePart") then v.CanCollide = false end
-			end
-		end
-		
-		if speedEnabled then
-			hum.WalkSpeed = 16 * SpeedMultiplier
-		else
-			hum.WalkSpeed = 16
-		end
-		
-		if flying and root then
-			local moveDir = hum.MoveDirection
-			bodyVelocity.Velocity = moveDir * FlySpeed
-			bodyGyro.CFrame = workspace.CurrentCamera.CFrame
-		end
-	end)
+    pcall(function()
+        local char = Player.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChild("Humanoid")
+        
+        if IsNoclip then
+            for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
+        end
+        
+        if IsSpeed then hum.WalkSpeed = 40 else hum.WalkSpeed = 16 end
+        
+        if IsFlying and hrp then
+            local dir = Camera.CFrame.LookVector
+            local v = Vector3.new(0, 0, 0)
+            if moveUp then v = dir * FlySpeed end
+            if moveDown then v = dir * -FlySpeed end
+            BV.Velocity = v
+            BG.CFrame = Camera.CFrame
+        end
+    end)
 end)
