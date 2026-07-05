@@ -1,0 +1,111 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+
+-- Configuration
+local SpeedMultiplier = 3
+local FlySpeed = 50
+
+-- Variables
+local flying = false
+local noclip = false
+local speedEnabled = false
+local bodyVelocity, bodyGyro
+
+-- UI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SofiyaMenu"
+ScreenGui.Parent = game.CoreGui
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 200, 0, 250)
+MainFrame.Position = UDim2.new(0.5, -100, 0.5, -125)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "SOFIYA <3"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+
+local function createToggle(name, callback)
+	local btn = Instance.new("TextButton", MainFrame)
+	btn.Size = UDim2.new(0.9, 0, 0, 40)
+	btn.Position = UDim2.new(0.05, 0, 0, 60 + (#MainFrame:GetChildren() - 3) * 50)
+	btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	btn.Text = name .. ": OFF"
+	btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+	btn.AutoButtonColor = false
+	
+	local state = false
+	btn.MouseButton1Click:Connect(function()
+		state = not state
+		btn.Text = name .. ": " .. (state and "ON" or "OFF")
+		btn.BackgroundColor3 = state and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(30, 30, 30)
+		callback(state)
+	end)
+end
+
+-- Functions
+createToggle("Fly", function(s)
+	flying = s
+	local char = Player.Character
+	if not char then return end
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if s then
+		bodyVelocity = Instance.new("BodyVelocity", root)
+		bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+		bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+		bodyGyro = Instance.new("BodyGyro", root)
+		bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+		bodyGyro.CFrame = root.CFrame
+	else
+		if bodyVelocity then bodyVelocity:Destroy() end
+		if bodyGyro then bodyGyro:Destroy() end
+	end
+end)
+
+createToggle("Noclip", function(s)
+	noclip = s
+end)
+
+createToggle("SpeedHack", function(s)
+	speedEnabled = s
+end)
+
+-- Loops
+RunService.Stepped:Connect(function()
+	pcall(function()
+		local char = Player.Character
+		if not char then return end
+		local root = char:FindFirstChild("HumanoidRootPart")
+		local hum = char:FindFirstChild("Humanoid")
+		
+		if noclip then
+			for _, v in pairs(char:GetDescendants()) do
+				if v:IsA("BasePart") then v.CanCollide = false end
+			end
+		end
+		
+		if speedEnabled then
+			hum.WalkSpeed = 16 * SpeedMultiplier
+		else
+			hum.WalkSpeed = 16
+		end
+		
+		if flying and root then
+			local moveDir = hum.MoveDirection
+			bodyVelocity.Velocity = moveDir * FlySpeed
+			bodyGyro.CFrame = workspace.CurrentCamera.CFrame
+		end
+	end)
+end)
