@@ -7,7 +7,6 @@ local TweenService = game:GetService("TweenService")
 local Player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Цветовая палитра (Киберпанк/Неоновый)
 local Colors = {
     Background = Color3.fromHex("#0A0A14"),
     Main = Color3.fromHex("#8B5CF6"),
@@ -19,7 +18,6 @@ local Colors = {
     LightGray = Color3.fromHex("#2A2A35")
 }
 
--- Состояния
 local States = {
     Fly = false,
     Noclip = false,
@@ -29,19 +27,15 @@ local States = {
     MenuMinimized = false
 }
 
--- Глобальные переменные для Fly и Noclip
-local FlyUp, FlyDown = false, false
 local BV, BG
 local OriginalCollisions = {}
+local ToggleFuncs = {}
 
--- ==========================================
--- СОЗДАНИЕ ИНТЕРФЕЙСА (GUI)
--- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SofiyaMenu"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = CoreGui end)
-if not ScreenGui.Parent then ScreenGui.Parent = Player:WaitForChild("PlayerGui") end
+if not ScreenGui.Parent then pcall(function() ScreenGui.Parent = Player:WaitForChild("PlayerGui", 5) end) end
 
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "Main"
@@ -53,16 +47,13 @@ MainFrame.ClipsDescendants = true
 
 local Constraint = Instance.new("UISizeConstraint", MainFrame)
 Constraint.MaxSize = Vector2.new(350, 800)
-
-local MainCorner = Instance.new("UICorner", MainFrame)
-MainCorner.CornerRadius = UDim.new(0, 15)
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
 
 local MainStroke = Instance.new("UIStroke", MainFrame)
 MainStroke.Color = Colors.Main
 MainStroke.Thickness = 2
 MainStroke.Transparency = 0.3
 
--- Заголовок (TopBar)
 local TopBar = Instance.new("Frame", MainFrame)
 TopBar.Size = UDim2.new(1, 0, 0, 50)
 TopBar.BackgroundTransparency = 1
@@ -84,7 +75,6 @@ TitleGradient.Color = ColorSequence.new{
     ColorSequenceKeypoint.new(1, Colors.Accent)
 }
 
--- Кнопки управления окном
 local ControlLayout = Instance.new("UIListLayout", TopBar)
 ControlLayout.FillDirection = Enum.FillDirection.Horizontal
 ControlLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
@@ -131,105 +121,45 @@ local ContainerLayout = Instance.new("UIListLayout", Container)
 ContainerLayout.Padding = UDim.new(0, 12)
 ContainerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Кнопки Fly для мобильного экрана
-local FlyControlsUI = Instance.new("Frame", ScreenGui)
-FlyControlsUI.Size = UDim2.new(0, 80, 0, 160)
-FlyControlsUI.Position = UDim2.new(1, -90, 0.5, -80)
-FlyControlsUI.BackgroundTransparency = 1
-FlyControlsUI.Visible = false
-
-local function CreateFlyArrow(text, posY)
-    local btn = Instance.new("TextButton", FlyControlsUI)
-    btn.Size = UDim2.new(0, 70, 0, 70)
-    btn.Position = UDim2.new(0, 5, 0, posY)
-    btn.Text = text
-    btn.BackgroundColor3 = Colors.Main
-    btn.BackgroundTransparency = 0.4
-    btn.TextColor3 = Colors.Text
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 30
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 15)
-    return btn
-end
-
-local FlyUpBtn = CreateFlyArrow("▲", 0)
-local FlyDownBtn = CreateFlyArrow("▼", 85)
-
-FlyUpBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then FlyUp = true end
-end)
-FlyUpBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then FlyUp = false end
-end)
-FlyDownBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then FlyDown = true end
-end)
-FlyDownBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then FlyDown = false end
-end)
-
--- ==========================================
--- ФУНКЦИИ ЛОГИКИ (FLY, NOCLIP, SPEED)
--- ==========================================
 local function GetCharData()
     local char = Player.Character
-    if not char then return nil, nil, nil end
-    return char, char:FindFirstChild("HumanoidRootPart"), char:FindFirstChild("Humanoid")
+    if char and char.Parent then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChild("Humanoid")
+        if hum and hum.Parent then
+            return char, hrp, hum
+        end
+    end
+    return nil, nil, nil
 end
 
 local function EnableFly()
-    local char, hrp, hum = GetCharData()
-    if not char or not hrp or not hum then return end
     pcall(function()
+        local char, hrp, hum = GetCharData()
+        if not char or not hrp or not hum then return end
         hum.PlatformStand = true
-        BV = Instance.new("BodyVelocity", hrp)
-        BV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-        BV.Velocity = Vector3.new(0, 0, 0)
-        
-        BG = Instance.new("BodyGyro", hrp)
-        BG.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-        BG.CFrame = hrp.CFrame
-    end)
-    FlyControlsUI.Visible = true
-end
-
-local function DisableFly()
-    local char, hrp, hum = GetCharData()
-    pcall(function()
-        if hum then hum.PlatformStand = false end
-        if BV then BV:Destroy(); BV = nil end
-        if BG then BG:Destroy(); BG = nil end
-    end)
-    FlyControlsUI.Visible = false
-    FlyUp = false
-    FlyDown = false
-end
-
-local function ApplyNoclip(state)
-    local char = Player.Character
-    if not char then return end
-    pcall(function()
-        if state then
-            for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
-                    OriginalCollisions[v] = v.CanCollide
-                    v.CanCollide = false
-                end
-            end
-        else
-            for part, collision in pairs(OriginalCollisions) do
-                if part and part.Parent then
-                    part.CanCollide = collision
-                end
-            end
-            OriginalCollisions = {}
+        if not BV then
+            BV = Instance.new("BodyVelocity", hrp)
+            BV.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+            BV.Velocity = Vector3.new(0, 0, 0)
+        end
+        if not BG then
+            BG = Instance.new("BodyGyro", hrp)
+            BG.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+            BG.CFrame = hrp.CFrame
         end
     end)
 end
 
--- ==========================================
--- СОЗДАНИЕ ЭЛЕМЕНТОВ МЕНЮ
--- ==========================================
+local function DisableFly()
+    pcall(function()
+        local char, hrp, hum = GetCharData()
+        if hum then hum.PlatformStand = false end
+        if BV then BV:Destroy(); BV = nil end
+        if BG then BG:Destroy(); BG = nil end
+    end)
+end
+
 local function UIElement(parent)
     local frame = Instance.new("Frame", parent)
     frame.Size = UDim2.new(1, 0, 0, 48)
@@ -238,9 +168,7 @@ local function UIElement(parent)
     return frame
 end
 
-local ToggleFuncs = {}
-
-local function CreateToggle(name, icon, stateVar, callback)
+local function CreateToggle(name, icon, bind, stateVar, callback)
     local frame = UIElement(Container)
     local btn = Instance.new("TextButton", frame)
     btn.Size = UDim2.new(1, 0, 1, 0)
@@ -248,7 +176,7 @@ local function CreateToggle(name, icon, stateVar, callback)
     btn.Text = ""
     
     local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, -70, 1, 0)
+    title.Size = UDim2.new(1, -120, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = icon .. " " .. name
@@ -256,6 +184,16 @@ local function CreateToggle(name, icon, stateVar, callback)
     title.Font = Enum.Font.Gotham
     title.TextSize = 20
     title.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local bindLabel = Instance.new("TextLabel", frame)
+    bindLabel.Size = UDim2.new(0, 40, 1, 0)
+    bindLabel.Position = UDim2.new(1, -85, 0, 0)
+    bindLabel.BackgroundTransparency = 1
+    bindLabel.Text = "[" .. bind .. "]"
+    bindLabel.TextColor3 = Color3.fromHex("#888888")
+    bindLabel.Font = Enum.Font.Gotham
+    bindLabel.TextSize = 14
+    bindLabel.TextXAlignment = Enum.TextXAlignment.Right
     
     local indicator = Instance.new("Frame", frame)
     indicator.Size = UDim2.new(0, 24, 0, 24)
@@ -273,7 +211,7 @@ local function CreateToggle(name, icon, stateVar, callback)
     ToggleFuncs[stateVar] = SetState
 end
 
-local function CreateSlider(name, min, max, defaultVar, stateVar, callback)
+local function CreateSlider(name, min, max, defaultVar, callback)
     local frame = UIElement(Container)
     frame.Size = UDim2.new(1, 0, 0, 75)
     
@@ -353,49 +291,62 @@ local function CreateResetBtn()
     local btn = Instance.new("TextButton", Container)
     btn.Size = UDim2.new(1, 0, 0, 48)
     btn.BackgroundColor3 = Colors.LightGray
-    btn.Text = "Сброс настроек"
+    btn.Text = "Сброс настроек [X]"
     btn.TextColor3 = Colors.Text
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 20
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
     
-    btn.MouseButton1Click:Connect(function()
+    local function ResetAll()
         if ToggleFuncs["Fly"] then ToggleFuncs["Fly"](false) end
         if ToggleFuncs["Noclip"] then ToggleFuncs["Noclip"](false) end
         if ToggleFuncs["Speed"] then ToggleFuncs["Speed"](false) end
         if ToggleFuncs["SpeedValue"] then ToggleFuncs["SpeedValue"](40) end
         if ToggleFuncs["FlySpeed"] then ToggleFuncs["FlySpeed"](50) end
-    end)
+    end
+    
+    btn.MouseButton1Click:Connect(ResetAll)
+    ToggleFuncs["Reset"] = ResetAll
 end
 
--- Инициализация функционала UI
-CreateToggle("Fly", "🚀", "Fly", function(state)
+CreateToggle("Fly", "🚀", "F", "Fly", function(state)
     if state then EnableFly() else DisableFly() end
 end)
 
-CreateSlider("Скорость полёта", 10, 200, "FlySpeed", "Fly", function(val) end)
+CreateSlider("Скорость полёта", 10, 200, "FlySpeed", function(val) end)
 
-CreateToggle("Noclip", "👻", "Noclip", function(state)
-    ApplyNoclip(state)
-end)
-
-CreateToggle("SpeedHack", "⚡", "Speed", function(state)
-    local _, _, hum = GetCharData()
-    if hum then hum.WalkSpeed = state and States.SpeedValue or 16 end
-end)
-
-CreateSlider("Множитель скорости", 16, 120, "SpeedValue", "Speed", function(val)
-    if States.Speed then
-        local _, _, hum = GetCharData()
-        if hum then hum.WalkSpeed = val end
+CreateToggle("Noclip", "👻", "N", "Noclip", function(state)
+    if not state then
+        pcall(function()
+            local char = Player.Character
+            if char and char.Parent then
+                for part, col in pairs(OriginalCollisions) do
+                    if part and part.Parent then part.CanCollide = col end
+                end
+            end
+            OriginalCollisions = {}
+        end)
     end
+end)
+
+CreateToggle("SpeedHack", "⚡", "V", "Speed", function(state)
+    pcall(function()
+        local _, _, hum = GetCharData()
+        if hum then hum.WalkSpeed = state and States.SpeedValue or 16 end
+    end)
+end)
+
+CreateSlider("Множитель скорости", 16, 120, "SpeedValue", function(val)
+    pcall(function()
+        if States.Speed then
+            local _, _, hum = GetCharData()
+            if hum then hum.WalkSpeed = val end
+        end
+    end)
 end)
 
 CreateResetBtn()
 
--- ==========================================
--- ЛОГИКА ОКНА (DRAG, MIN/MAX, CLOSE)
--- ==========================================
 local dragging, dragInput, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -422,7 +373,8 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
+    pcall(function() ScreenGui:Destroy() end)
+    if ToggleFuncs["Reset"] then ToggleFuncs["Reset"]() end
 end)
 
 local OriginalSize = UDim2.new(0.85, 0, 0.6, 0)
@@ -445,46 +397,51 @@ MaxBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ==========================================
--- ИГРОВЫЕ ЦИКЛЫ И СОБЫТИЯ
--- ==========================================
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    pcall(function()
+        if input.KeyCode == Enum.KeyCode.F then
+            if ToggleFuncs["Fly"] then ToggleFuncs["Fly"](not States.Fly) end
+        elseif input.KeyCode == Enum.KeyCode.N then
+            if ToggleFuncs["Noclip"] then ToggleFuncs["Noclip"](not States.Noclip) end
+        elseif input.KeyCode == Enum.KeyCode.V then
+            if ToggleFuncs["Speed"] then ToggleFuncs["Speed"](not States.Speed) end
+        elseif input.KeyCode == Enum.KeyCode.X then
+            if ToggleFuncs["Reset"] then ToggleFuncs["Reset"]() end
+        end
+    end)
+end)
+
 RunService.Heartbeat:Connect(function()
     pcall(function()
         local char, hrp, hum = GetCharData()
         if not char or not hrp or not hum then return end
         
-        -- Fly Logic
         if States.Fly and BV and BG then
             if hum.Health <= 0 then 
-                ToggleFuncs["Fly"](false) 
+                if ToggleFuncs["Fly"] then ToggleFuncs["Fly"](false) end
                 return 
             end
-            
-            local camDir = Camera.CFrame.LookVector
-            local moveVec = Vector3.new(0, 0, 0)
-            
-            if FlyUp then moveVec = camDir * States.FlySpeed end
-            if FlyDown then moveVec = camDir * -States.FlySpeed end
-            
-            BV.Velocity = moveVec
+            BV.Velocity = Camera.CFrame.LookVector * States.FlySpeed
             BG.CFrame = Camera.CFrame
         end
         
-        -- Speed Logic
-        if States.Speed and hum then
+        if States.Speed then
             hum.WalkSpeed = States.SpeedValue
         end
     end)
 end)
 
--- Noclip Logic (выполняется на Stepped, чтобы движок не переписывал коллизии)
 RunService.Stepped:Connect(function()
     pcall(function()
         if States.Noclip then
             local char = Player.Character
-            if char then
+            if char and char.Parent then
                 for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
+                    if v:IsA("BasePart") then
+                        if OriginalCollisions[v] == nil then
+                            OriginalCollisions[v] = v.CanCollide
+                        end
                         v.CanCollide = false
                     end
                 end
@@ -493,26 +450,22 @@ RunService.Stepped:Connect(function()
     end)
 end)
 
--- Обработка смерти/перерождения
 Player.CharacterAdded:Connect(function(char)
-    local hrp = char:WaitForChild("HumanoidRootPart", 5)
-    local hum = char:WaitForChild("Humanoid", 5)
-    if not hrp or not hum then return end
-    
-    task.wait(0.5) -- Ждём прогрузки физики
-    if States.Fly then
-        EnableFly()
-    end
-    if States.Noclip then
-        ApplyNoclip(true)
-    end
-    if States.Speed then
-        hum.WalkSpeed = States.SpeedValue
-    end
+    pcall(function()
+        local hrp = char:WaitForChild("HumanoidRootPart", 5)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hrp or not hum then return end
+        
+        task.wait(0.5)
+        if States.Fly then EnableFly() end
+        if States.Speed then hum.WalkSpeed = States.SpeedValue end
+    end)
 end)
 
 Player.CharacterRemoving:Connect(function()
-    if BV then BV:Destroy(); BV = nil end
-    if BG then BG:Destroy(); BG = nil end
-    OriginalCollisions = {}
+    pcall(function()
+        if BV then BV:Destroy(); BV = nil end
+        if BG then BG:Destroy(); BG = nil end
+        OriginalCollisions = {}
+    end)
 end)
