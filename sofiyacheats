@@ -1,128 +1,518 @@
+local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local Player = Players.LocalPlayer
-local Mouse = Player:GetMouse()
 local Camera = workspace.CurrentCamera
 
--- Mobile Config
-local FlySpeed = 50
-local WalkSpeed = 16
-local IsFlying = false
-local IsNoclip = false
-local IsSpeed = false
+-- Цветовая палитра (Киберпанк/Неоновый)
+local Colors = {
+    Background = Color3.fromHex("#0A0A14"),
+    Main = Color3.fromHex("#8B5CF6"),
+    Accent = Color3.fromHex("#EC4899"),
+    Text = Color3.fromHex("#FFFFFF"),
+    On = Color3.fromHex("#10B981"),
+    Off = Color3.fromHex("#EF4444"),
+    DarkGray = Color3.fromHex("#1A1A24"),
+    LightGray = Color3.fromHex("#2A2A35")
+}
 
--- UI Elements
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "SofiyaMobile"
+-- Состояния
+local States = {
+    Fly = false,
+    Noclip = false,
+    Speed = false,
+    FlySpeed = 50,
+    SpeedValue = 40,
+    MenuMinimized = false
+}
+
+-- Глобальные переменные для Fly и Noclip
+local FlyUp, FlyDown = false, false
+local BV, BG
+local OriginalCollisions = {}
+
+-- ==========================================
+-- СОЗДАНИЕ ИНТЕРФЕЙСА (GUI)
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SofiyaMenu"
+ScreenGui.ResetOnSpawn = false
+pcall(function() ScreenGui.Parent = CoreGui end)
+if not ScreenGui.Parent then ScreenGui.Parent = Player:WaitForChild("PlayerGui") end
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0.8, 0, 0.5, 0)
-MainFrame.Position = UDim2.new(0.1, 0, 0.25, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Active = true
-MainFrame.Draggable = true
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
+MainFrame.Name = "Main"
+MainFrame.Size = UDim2.new(0.85, 0, 0.6, 0)
+MainFrame.Position = UDim2.new(0.075, 0, 0.2, 0)
+MainFrame.BackgroundColor3 = Colors.Background
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
 
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 50)
+local Constraint = Instance.new("UISizeConstraint", MainFrame)
+Constraint.MaxSize = Vector2.new(350, 800)
+
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 15)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Colors.Main
+MainStroke.Thickness = 2
+MainStroke.Transparency = 0.3
+
+-- Заголовок (TopBar)
+local TopBar = Instance.new("Frame", MainFrame)
+TopBar.Size = UDim2.new(1, 0, 0, 50)
+TopBar.BackgroundTransparency = 1
+TopBar.Active = true
+
+local Title = Instance.new("TextLabel", TopBar)
+Title.Size = UDim2.new(1, -110, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
 Title.Text = "SOFIYA <3"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 22
+Title.TextSize = 26
 Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Toggle Helpers
-local function createButton(name, text, parent, callback)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0.9, 0, 0, 50)
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+local TitleGradient = Instance.new("UIGradient", Title)
+TitleGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Colors.Main),
+    ColorSequenceKeypoint.new(1, Colors.Accent)
+}
+
+-- Кнопки управления окном
+local ControlLayout = Instance.new("UIListLayout", TopBar)
+ControlLayout.FillDirection = Enum.FillDirection.Horizontal
+ControlLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+ControlLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+ControlLayout.Padding = UDim.new(0, 5)
+
+local CloseBtn = Instance.new("TextButton", TopBar)
+CloseBtn.Size = UDim2.new(0, 35, 0, 35)
+CloseBtn.BackgroundColor3 = Colors.Off
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Colors.Text
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 18
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+
+local MinBtn = Instance.new("TextButton", TopBar)
+MinBtn.Size = UDim2.new(0, 35, 0, 35)
+MinBtn.BackgroundColor3 = Color3.fromHex("#EAB308")
+MinBtn.Text = "➖"
+MinBtn.TextColor3 = Colors.Text
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 18
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 8)
+
+local MaxBtn = Instance.new("TextButton", TopBar)
+MaxBtn.Size = UDim2.new(0, 35, 0, 35)
+MaxBtn.BackgroundColor3 = Colors.On
+MaxBtn.Text = "➕"
+MaxBtn.TextColor3 = Colors.Text
+MaxBtn.Font = Enum.Font.GothamBold
+MaxBtn.TextSize = 18
+MaxBtn.Visible = false
+Instance.new("UICorner", MaxBtn).CornerRadius = UDim.new(0, 8)
+
+local Container = Instance.new("ScrollingFrame", MainFrame)
+Container.Size = UDim2.new(1, -20, 1, -60)
+Container.Position = UDim2.new(0, 10, 0, 55)
+Container.BackgroundTransparency = 1
+Container.ScrollBarThickness = 2
+Container.CanvasSize = UDim2.new(0, 0, 0, 400)
+Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local ContainerLayout = Instance.new("UIListLayout", Container)
+ContainerLayout.Padding = UDim.new(0, 12)
+ContainerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Кнопки Fly для мобильного экрана
+local FlyControlsUI = Instance.new("Frame", ScreenGui)
+FlyControlsUI.Size = UDim2.new(0, 80, 0, 160)
+FlyControlsUI.Position = UDim2.new(1, -90, 0.5, -80)
+FlyControlsUI.BackgroundTransparency = 1
+FlyControlsUI.Visible = false
+
+local function CreateFlyArrow(text, posY)
+    local btn = Instance.new("TextButton", FlyControlsUI)
+    btn.Size = UDim2.new(0, 70, 0, 70)
+    btn.Position = UDim2.new(0, 5, 0, posY)
     btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 20
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
-    
-    local active = false
-    btn.MouseButton1Click:Connect(function()
-        active = not active
-        btn.BackgroundColor3 = active and Color3.fromRGB(0, 150, 50) or Color3.fromRGB(50, 50, 50)
-        callback(active)
-    end)
+    btn.BackgroundColor3 = Colors.Main
+    btn.BackgroundTransparency = 0.4
+    btn.TextColor3 = Colors.Text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 30
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 15)
     return btn
 end
 
--- Fly Controls (Mobile Specific)
-local FlyFrame = Instance.new("Frame", ScreenGui)
-FlyFrame.Visible = false
-FlyFrame.Size = UDim2.new(0, 120, 0, 120)
-FlyFrame.Position = UDim2.new(0.7, 0, 0.6, 0)
-FlyFrame.BackgroundTransparency = 1
+local FlyUpBtn = CreateFlyArrow("▲", 0)
+local FlyDownBtn = CreateFlyArrow("▼", 85)
 
-local UpBtn = Instance.new("TextButton", FlyFrame)
-UpBtn.Size = UDim2.new(0, 50, 0, 50)
-UpBtn.Position = UDim2.new(0, 35, 0, 0)
-UpBtn.Text = "▲"
-UpBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+FlyUpBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then FlyUp = true end
+end)
+FlyUpBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then FlyUp = false end
+end)
+FlyDownBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then FlyDown = true end
+end)
+FlyDownBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then FlyDown = false end
+end)
 
-local DownBtn = Instance.new("TextButton", FlyFrame)
-DownBtn.Size = UDim2.new(0, 50, 0, 50)
-DownBtn.Position = UDim2.new(0, 35, 0, 60)
-DownBtn.Text = "▼"
-DownBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+-- ==========================================
+-- ФУНКЦИИ ЛОГИКИ (FLY, NOCLIP, SPEED)
+-- ==========================================
+local function GetCharData()
+    local char = Player.Character
+    if not char then return nil, nil, nil end
+    return char, char:FindFirstChild("HumanoidRootPart"), char:FindFirstChild("Humanoid")
+end
 
--- Core Logic
-local BV, BG
-local moveUp, moveDown = false, false
+local function EnableFly()
+    local char, hrp, hum = GetCharData()
+    if not char or not hrp or not hum then return end
+    pcall(function()
+        hum.PlatformStand = true
+        BV = Instance.new("BodyVelocity", hrp)
+        BV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+        BV.Velocity = Vector3.new(0, 0, 0)
+        
+        BG = Instance.new("BodyGyro", hrp)
+        BG.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+        BG.CFrame = hrp.CFrame
+    end)
+    FlyControlsUI.Visible = true
+end
 
-UpBtn.MouseButton1Down:Connect(function() moveUp = true end)
-UpBtn.MouseButton1Up:Connect(function() moveUp = false end)
-DownBtn.MouseButton1Down:Connect(function() moveDown = true end)
-DownBtn.MouseButton1Up:Connect(function() moveDown = false end)
+local function DisableFly()
+    local char, hrp, hum = GetCharData()
+    pcall(function()
+        if hum then hum.PlatformStand = false end
+        if BV then BV:Destroy(); BV = nil end
+        if BG then BG:Destroy(); BG = nil end
+    end)
+    FlyControlsUI.Visible = false
+    FlyUp = false
+    FlyDown = false
+end
 
-createButton(MainFrame, "🚀 Fly", MainFrame, function(s)
-    IsFlying = s
-    FlyFrame.Visible = s
+local function ApplyNoclip(state)
     local char = Player.Character
     if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if s then
-        BV = Instance.new("BodyVelocity", hrp)
-        BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        BG = Instance.new("BodyGyro", hrp)
-        BG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-    else
-        if BV then BV:Destroy() end
-        if BG then BG:Destroy() end
+    pcall(function()
+        if state then
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
+                    OriginalCollisions[v] = v.CanCollide
+                    v.CanCollide = false
+                end
+            end
+        else
+            for part, collision in pairs(OriginalCollisions) do
+                if part and part.Parent then
+                    part.CanCollide = collision
+                end
+            end
+            OriginalCollisions = {}
+        end
+    end)
+end
+
+-- ==========================================
+-- СОЗДАНИЕ ЭЛЕМЕНТОВ МЕНЮ
+-- ==========================================
+local function UIElement(parent)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1, 0, 0, 48)
+    frame.BackgroundColor3 = Colors.DarkGray
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+    return frame
+end
+
+local ToggleFuncs = {}
+
+local function CreateToggle(name, icon, stateVar, callback)
+    local frame = UIElement(Container)
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, -70, 1, 0)
+    title.Position = UDim2.new(0, 15, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = icon .. " " .. name
+    title.TextColor3 = Colors.Text
+    title.Font = Enum.Font.Gotham
+    title.TextSize = 20
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local indicator = Instance.new("Frame", frame)
+    indicator.Size = UDim2.new(0, 24, 0, 24)
+    indicator.Position = UDim2.new(1, -40, 0.5, -12)
+    indicator.BackgroundColor3 = Colors.Off
+    Instance.new("UICorner", indicator).CornerRadius = UDim.new(1, 0)
+    
+    local function SetState(newState)
+        States[stateVar] = newState
+        indicator.BackgroundColor3 = newState and Colors.On or Colors.Off
+        task.spawn(callback, newState)
+    end
+    
+    btn.MouseButton1Click:Connect(function() SetState(not States[stateVar]) end)
+    ToggleFuncs[stateVar] = SetState
+end
+
+local function CreateSlider(name, min, max, defaultVar, stateVar, callback)
+    local frame = UIElement(Container)
+    frame.Size = UDim2.new(1, 0, 0, 75)
+    
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, -20, 0, 30)
+    title.Position = UDim2.new(0, 10, 0, 5)
+    title.BackgroundTransparency = 1
+    title.Text = name
+    title.TextColor3 = Colors.Text
+    title.Font = Enum.Font.Gotham
+    title.TextSize = 18
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local valueTxt = Instance.new("TextLabel", frame)
+    valueTxt.Size = UDim2.new(0, 40, 0, 30)
+    valueTxt.Position = UDim2.new(1, -50, 0, 5)
+    valueTxt.BackgroundTransparency = 1
+    valueTxt.Text = tostring(States[defaultVar])
+    valueTxt.TextColor3 = Colors.Accent
+    valueTxt.Font = Enum.Font.GothamBold
+    valueTxt.TextSize = 18
+    
+    local slideBg = Instance.new("Frame", frame)
+    slideBg.Size = UDim2.new(1, -30, 0, 10)
+    slideBg.Position = UDim2.new(0, 15, 0, 45)
+    slideBg.BackgroundColor3 = Colors.LightGray
+    Instance.new("UICorner", slideBg).CornerRadius = UDim.new(1, 0)
+    
+    local fill = Instance.new("Frame", slideBg)
+    fill.Size = UDim2.new((States[defaultVar] - min)/(max - min), 0, 1, 0)
+    fill.BackgroundColor3 = Colors.Main
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+    
+    local btn = Instance.new("TextButton", slideBg)
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.Position = UDim2.new(0, 0, 0, -10)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    
+    local isDragging = false
+    local function UpdateSlider(input)
+        local pos = math.clamp(input.Position.X - slideBg.AbsolutePosition.X, 0, slideBg.AbsoluteSize.X)
+        local percent = pos / slideBg.AbsoluteSize.X
+        local value = math.floor(min + ((max - min) * percent))
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        valueTxt.Text = tostring(value)
+        States[defaultVar] = value
+        task.spawn(callback, value)
+    end
+    
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            UpdateSlider(input)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            UpdateSlider(input)
+        end
+    end)
+    
+    ToggleFuncs[defaultVar] = function(val)
+        States[defaultVar] = val
+        valueTxt.Text = tostring(val)
+        fill.Size = UDim2.new((val - min)/(max - min), 0, 1, 0)
+        task.spawn(callback, val)
+    end
+end
+
+local function CreateResetBtn()
+    local btn = Instance.new("TextButton", Container)
+    btn.Size = UDim2.new(1, 0, 0, 48)
+    btn.BackgroundColor3 = Colors.LightGray
+    btn.Text = "Сброс настроек"
+    btn.TextColor3 = Colors.Text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 20
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+    
+    btn.MouseButton1Click:Connect(function()
+        if ToggleFuncs["Fly"] then ToggleFuncs["Fly"](false) end
+        if ToggleFuncs["Noclip"] then ToggleFuncs["Noclip"](false) end
+        if ToggleFuncs["Speed"] then ToggleFuncs["Speed"](false) end
+        if ToggleFuncs["SpeedValue"] then ToggleFuncs["SpeedValue"](40) end
+        if ToggleFuncs["FlySpeed"] then ToggleFuncs["FlySpeed"](50) end
+    end)
+end
+
+-- Инициализация функционала UI
+CreateToggle("Fly", "🚀", "Fly", function(state)
+    if state then EnableFly() else DisableFly() end
+end)
+
+CreateSlider("Скорость полёта", 10, 200, "FlySpeed", "Fly", function(val) end)
+
+CreateToggle("Noclip", "👻", "Noclip", function(state)
+    ApplyNoclip(state)
+end)
+
+CreateToggle("SpeedHack", "⚡", "Speed", function(state)
+    local _, _, hum = GetCharData()
+    if hum then hum.WalkSpeed = state and States.SpeedValue or 16 end
+end)
+
+CreateSlider("Множитель скорости", 16, 120, "SpeedValue", "Speed", function(val)
+    if States.Speed then
+        local _, _, hum = GetCharData()
+        if hum then hum.WalkSpeed = val end
     end
 end)
 
-createButton(MainFrame, "👻 Noclip", MainFrame, function(s) IsNoclip = s end)
-createButton(MainFrame, "⚡ Speed", MainFrame, function(s) IsSpeed = s end)
+CreateResetBtn()
 
--- Loop
-RunService.Stepped:Connect(function()
+-- ==========================================
+-- ЛОГИКА ОКНА (DRAG, MIN/MAX, CLOSE)
+-- ==========================================
+local dragging, dragInput, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+local OriginalSize = UDim2.new(0.85, 0, 0.6, 0)
+MinBtn.MouseButton1Click:Connect(function()
+    States.MenuMinimized = true
+    MinBtn.Visible = false
+    MaxBtn.Visible = true
+    Container.Visible = false
+    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0.85, 0, 0, 50)}):Play()
+end)
+
+MaxBtn.MouseButton1Click:Connect(function()
+    States.MenuMinimized = false
+    MaxBtn.Visible = false
+    MinBtn.Visible = true
+    local tw = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = OriginalSize})
+    tw:Play()
+    tw.Completed:Connect(function()
+        if not States.MenuMinimized then Container.Visible = true end
+    end)
+end)
+
+-- ==========================================
+-- ИГРОВЫЕ ЦИКЛЫ И СОБЫТИЯ
+-- ==========================================
+RunService.Heartbeat:Connect(function()
     pcall(function()
-        local char = Player.Character
-        if not char then return end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChild("Humanoid")
+        local char, hrp, hum = GetCharData()
+        if not char or not hrp or not hum then return end
         
-        if IsNoclip then
-            for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
-        end
-        
-        if IsSpeed then hum.WalkSpeed = 40 else hum.WalkSpeed = 16 end
-        
-        if IsFlying and hrp then
-            local dir = Camera.CFrame.LookVector
-            local v = Vector3.new(0, 0, 0)
-            if moveUp then v = dir * FlySpeed end
-            if moveDown then v = dir * -FlySpeed end
-            BV.Velocity = v
+        -- Fly Logic
+        if States.Fly and BV and BG then
+            if hum.Health <= 0 then 
+                ToggleFuncs["Fly"](false) 
+                return 
+            end
+            
+            local camDir = Camera.CFrame.LookVector
+            local moveVec = Vector3.new(0, 0, 0)
+            
+            if FlyUp then moveVec = camDir * States.FlySpeed end
+            if FlyDown then moveVec = camDir * -States.FlySpeed end
+            
+            BV.Velocity = moveVec
             BG.CFrame = Camera.CFrame
         end
+        
+        -- Speed Logic
+        if States.Speed and hum then
+            hum.WalkSpeed = States.SpeedValue
+        end
     end)
+end)
+
+-- Noclip Logic (выполняется на Stepped, чтобы движок не переписывал коллизии)
+RunService.Stepped:Connect(function()
+    pcall(function()
+        if States.Noclip then
+            local char = Player.Character
+            if char then
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
+                        v.CanCollide = false
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+-- Обработка смерти/перерождения
+Player.CharacterAdded:Connect(function(char)
+    local hrp = char:WaitForChild("HumanoidRootPart", 5)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if not hrp or not hum then return end
+    
+    task.wait(0.5) -- Ждём прогрузки физики
+    if States.Fly then
+        EnableFly()
+    end
+    if States.Noclip then
+        ApplyNoclip(true)
+    end
+    if States.Speed then
+        hum.WalkSpeed = States.SpeedValue
+    end
+end)
+
+Player.CharacterRemoving:Connect(function()
+    if BV then BV:Destroy(); BV = nil end
+    if BG then BG:Destroy(); BG = nil end
+    OriginalCollisions = {}
 end)
