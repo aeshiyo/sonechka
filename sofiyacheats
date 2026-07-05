@@ -1,471 +1,621 @@
-local CoreGui = game:GetService("CoreGui")
+-- SOFIYA <3 - COMPLETE EDITION
+-- Работает на: Hydrogen, Delta, Arceus X, CodeX, Synapse, Krnl, Fluxus
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
 
-local Player = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local lplr = Players.LocalPlayer
+local character = lplr.Character or lplr.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
 
-local Colors = {
-    Background = Color3.fromHex("#0A0A14"),
-    Main = Color3.fromHex("#8B5CF6"),
-    Accent = Color3.fromHex("#EC4899"),
-    Text = Color3.fromHex("#FFFFFF"),
-    On = Color3.fromHex("#10B981"),
-    Off = Color3.fromHex("#EF4444"),
-    DarkGray = Color3.fromHex("#1A1A24"),
-    LightGray = Color3.fromHex("#2A2A35")
-}
+lplr.CharacterAdded:Connect(function(char)
+	character = char
+	humanoid = character:WaitForChild("Humanoid")
+	rootPart = character:WaitForChild("HumanoidRootPart")
+end)
 
-local States = {
-    Fly = false,
-    Noclip = false,
-    Speed = false,
-    FlySpeed = 50,
-    SpeedValue = 40,
-    MenuMinimized = false
-}
-
-local BV, BG
-local OriginalCollisions = {}
-local ToggleFuncs = {}
+local guiName = "SOFIYA_GUI_1337"
+pcall(function()
+	if CoreGui:FindFirstChild(guiName) then
+		CoreGui[guiName]:Destroy()
+	end
+end)
+pcall(function()
+	if lplr.PlayerGui:FindFirstChild(guiName) then
+		lplr.PlayerGui[guiName]:Destroy()
+	end
+end)
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SofiyaMenu"
+ScreenGui.Name = guiName
 ScreenGui.ResetOnSpawn = false
-pcall(function() ScreenGui.Parent = CoreGui end)
-if not ScreenGui.Parent then pcall(function() ScreenGui.Parent = Player:WaitForChild("PlayerGui", 5) end) end
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Name = "Main"
-MainFrame.Size = UDim2.new(0.85, 0, 0.6, 0)
-MainFrame.Position = UDim2.new(0.075, 0, 0.2, 0)
-MainFrame.BackgroundColor3 = Colors.Background
-MainFrame.BorderSizePixel = 0
+pcall(function()
+	if syn and syn.protect_gui then
+		syn.protect_gui(ScreenGui)
+		ScreenGui.Parent = CoreGui
+	else
+		ScreenGui.Parent = CoreGui
+	end
+end)
+if not ScreenGui.Parent then
+	ScreenGui.Parent = lplr:WaitForChild("PlayerGui")
+end
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+MainFrame.BackgroundTransparency = 0.08
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -220)
+MainFrame.Size = UDim2.new(0, 300, 0, 440)
 MainFrame.ClipsDescendants = true
 
-local Constraint = Instance.new("UISizeConstraint", MainFrame)
-Constraint.MaxSize = Vector2.new(350, 800)
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 16)
+MainCorner.Parent = MainFrame
 
-local MainStroke = Instance.new("UIStroke", MainFrame)
-MainStroke.Color = Colors.Main
-MainStroke.Thickness = 2
-MainStroke.Transparency = 0.3
-
-local TopBar = Instance.new("Frame", MainFrame)
-TopBar.Size = UDim2.new(1, 0, 0, 50)
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Parent = MainFrame
+TopBar.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
 TopBar.BackgroundTransparency = 1
-TopBar.Active = true
+TopBar.Size = UDim2.new(1, 0, 0, 40)
 
-local Title = Instance.new("TextLabel", TopBar)
-Title.Size = UDim2.new(1, -110, 1, 0)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "SOFIYA <3"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 26
+local Title = Instance.new("TextLabel")
+Title.Parent = TopBar
 Title.BackgroundTransparency = 1
-Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Size = UDim2.new(0.5, 0, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "SOFIYA <3"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 18
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local TitleGradient = Instance.new("UIGradient", Title)
-TitleGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Colors.Main),
-    ColorSequenceKeypoint.new(1, Colors.Accent)
-}
+local TitleGradient = Instance.new("UIGradient")
+TitleGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(139, 92, 246)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(236, 72, 153))
+})
+TitleGradient.Parent = Title
 
-local ControlLayout = Instance.new("UIListLayout", TopBar)
-ControlLayout.FillDirection = Enum.FillDirection.Horizontal
-ControlLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-ControlLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-ControlLayout.Padding = UDim.new(0, 5)
-
-local CloseBtn = Instance.new("TextButton", TopBar)
-CloseBtn.Size = UDim2.new(0, 35, 0, 35)
-CloseBtn.BackgroundColor3 = Colors.Off
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Colors.Text
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Parent = TopBar
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Position = UDim2.new(1, -40, 0, 0)
+CloseBtn.Size = UDim2.new(0, 40, 0, 40)
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 18
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 16
 
-local MinBtn = Instance.new("TextButton", TopBar)
-MinBtn.Size = UDim2.new(0, 35, 0, 35)
-MinBtn.BackgroundColor3 = Color3.fromHex("#EAB308")
-MinBtn.Text = "➖"
-MinBtn.TextColor3 = Colors.Text
+local MinBtn = Instance.new("TextButton")
+MinBtn.Parent = TopBar
+MinBtn.BackgroundTransparency = 1
+MinBtn.Position = UDim2.new(1, -80, 0, 0)
+MinBtn.Size = UDim2.new(0, 40, 0, 40)
 MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 18
-Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 8)
+MinBtn.Text = "➖"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextSize = 16
 
-local MaxBtn = Instance.new("TextButton", TopBar)
-MaxBtn.Size = UDim2.new(0, 35, 0, 35)
-MaxBtn.BackgroundColor3 = Colors.On
-MaxBtn.Text = "➕"
-MaxBtn.TextColor3 = Colors.Text
+local MaxBtn = Instance.new("TextButton")
+MaxBtn.Parent = TopBar
+MaxBtn.BackgroundTransparency = 1
+MaxBtn.Position = UDim2.new(1, -80, 0, 0)
+MaxBtn.Size = UDim2.new(0, 40, 0, 40)
 MaxBtn.Font = Enum.Font.GothamBold
-MaxBtn.TextSize = 18
+MaxBtn.Text = "➕"
+MaxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MaxBtn.TextSize = 16
 MaxBtn.Visible = false
-Instance.new("UICorner", MaxBtn).CornerRadius = UDim.new(0, 8)
 
-local Container = Instance.new("ScrollingFrame", MainFrame)
-Container.Size = UDim2.new(1, -20, 1, -60)
-Container.Position = UDim2.new(0, 10, 0, 55)
-Container.BackgroundTransparency = 1
-Container.ScrollBarThickness = 2
-Container.CanvasSize = UDim2.new(0, 0, 0, 400)
-Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-local ContainerLayout = Instance.new("UIListLayout", Container)
-ContainerLayout.Padding = UDim.new(0, 12)
-ContainerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-local function GetCharData()
-    local char = Player.Character
-    if char and char.Parent then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChild("Humanoid")
-        if hum and hum.Parent then
-            return char, hrp, hum
-        end
-    end
-    return nil, nil, nil
+local function MakeDraggable(gui, dragPart)
+	local dragging, dragInput, dragStart, startPos
+	dragPart.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = gui.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	dragPart.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
 end
-
-local function EnableFly()
-    pcall(function()
-        local char, hrp, hum = GetCharData()
-        if not char or not hrp or not hum then return end
-        hum.PlatformStand = true
-        if not BV then
-            BV = Instance.new("BodyVelocity", hrp)
-            BV.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-            BV.Velocity = Vector3.new(0, 0, 0)
-        end
-        if not BG then
-            BG = Instance.new("BodyGyro", hrp)
-            BG.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-            BG.CFrame = hrp.CFrame
-        end
-    end)
-end
-
-local function DisableFly()
-    pcall(function()
-        local char, hrp, hum = GetCharData()
-        if hum then hum.PlatformStand = false end
-        if BV then BV:Destroy(); BV = nil end
-        if BG then BG:Destroy(); BG = nil end
-    end)
-end
-
-local function UIElement(parent)
-    local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, 0, 0, 48)
-    frame.BackgroundColor3 = Colors.DarkGray
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
-    return frame
-end
-
-local function CreateToggle(name, icon, bind, stateVar, callback)
-    local frame = UIElement(Container)
-    local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    
-    local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, -120, 1, 0)
-    title.Position = UDim2.new(0, 15, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = icon .. " " .. name
-    title.TextColor3 = Colors.Text
-    title.Font = Enum.Font.Gotham
-    title.TextSize = 20
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local bindLabel = Instance.new("TextLabel", frame)
-    bindLabel.Size = UDim2.new(0, 40, 1, 0)
-    bindLabel.Position = UDim2.new(1, -85, 0, 0)
-    bindLabel.BackgroundTransparency = 1
-    bindLabel.Text = "[" .. bind .. "]"
-    bindLabel.TextColor3 = Color3.fromHex("#888888")
-    bindLabel.Font = Enum.Font.Gotham
-    bindLabel.TextSize = 14
-    bindLabel.TextXAlignment = Enum.TextXAlignment.Right
-    
-    local indicator = Instance.new("Frame", frame)
-    indicator.Size = UDim2.new(0, 24, 0, 24)
-    indicator.Position = UDim2.new(1, -40, 0.5, -12)
-    indicator.BackgroundColor3 = Colors.Off
-    Instance.new("UICorner", indicator).CornerRadius = UDim.new(1, 0)
-    
-    local function SetState(newState)
-        States[stateVar] = newState
-        indicator.BackgroundColor3 = newState and Colors.On or Colors.Off
-        task.spawn(callback, newState)
-    end
-    
-    btn.MouseButton1Click:Connect(function() SetState(not States[stateVar]) end)
-    ToggleFuncs[stateVar] = SetState
-end
-
-local function CreateSlider(name, min, max, defaultVar, callback)
-    local frame = UIElement(Container)
-    frame.Size = UDim2.new(1, 0, 0, 75)
-    
-    local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, -20, 0, 30)
-    title.Position = UDim2.new(0, 10, 0, 5)
-    title.BackgroundTransparency = 1
-    title.Text = name
-    title.TextColor3 = Colors.Text
-    title.Font = Enum.Font.Gotham
-    title.TextSize = 18
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local valueTxt = Instance.new("TextLabel", frame)
-    valueTxt.Size = UDim2.new(0, 40, 0, 30)
-    valueTxt.Position = UDim2.new(1, -50, 0, 5)
-    valueTxt.BackgroundTransparency = 1
-    valueTxt.Text = tostring(States[defaultVar])
-    valueTxt.TextColor3 = Colors.Accent
-    valueTxt.Font = Enum.Font.GothamBold
-    valueTxt.TextSize = 18
-    
-    local slideBg = Instance.new("Frame", frame)
-    slideBg.Size = UDim2.new(1, -30, 0, 10)
-    slideBg.Position = UDim2.new(0, 15, 0, 45)
-    slideBg.BackgroundColor3 = Colors.LightGray
-    Instance.new("UICorner", slideBg).CornerRadius = UDim.new(1, 0)
-    
-    local fill = Instance.new("Frame", slideBg)
-    fill.Size = UDim2.new((States[defaultVar] - min)/(max - min), 0, 1, 0)
-    fill.BackgroundColor3 = Colors.Main
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-    
-    local btn = Instance.new("TextButton", slideBg)
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.Position = UDim2.new(0, 0, 0, -10)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    
-    local isDragging = false
-    local function UpdateSlider(input)
-        local pos = math.clamp(input.Position.X - slideBg.AbsolutePosition.X, 0, slideBg.AbsoluteSize.X)
-        local percent = pos / slideBg.AbsoluteSize.X
-        local value = math.floor(min + ((max - min) * percent))
-        fill.Size = UDim2.new(percent, 0, 1, 0)
-        valueTxt.Text = tostring(value)
-        States[defaultVar] = value
-        task.spawn(callback, value)
-    end
-    
-    btn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = true
-            UpdateSlider(input)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = false
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            UpdateSlider(input)
-        end
-    end)
-    
-    ToggleFuncs[defaultVar] = function(val)
-        States[defaultVar] = val
-        valueTxt.Text = tostring(val)
-        fill.Size = UDim2.new((val - min)/(max - min), 0, 1, 0)
-        task.spawn(callback, val)
-    end
-end
-
-local function CreateResetBtn()
-    local btn = Instance.new("TextButton", Container)
-    btn.Size = UDim2.new(1, 0, 0, 48)
-    btn.BackgroundColor3 = Colors.LightGray
-    btn.Text = "Сброс настроек [X]"
-    btn.TextColor3 = Colors.Text
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 20
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
-    
-    local function ResetAll()
-        if ToggleFuncs["Fly"] then ToggleFuncs["Fly"](false) end
-        if ToggleFuncs["Noclip"] then ToggleFuncs["Noclip"](false) end
-        if ToggleFuncs["Speed"] then ToggleFuncs["Speed"](false) end
-        if ToggleFuncs["SpeedValue"] then ToggleFuncs["SpeedValue"](40) end
-        if ToggleFuncs["FlySpeed"] then ToggleFuncs["FlySpeed"](50) end
-    end
-    
-    btn.MouseButton1Click:Connect(ResetAll)
-    ToggleFuncs["Reset"] = ResetAll
-end
-
-CreateToggle("Fly", "🚀", "F", "Fly", function(state)
-    if state then EnableFly() else DisableFly() end
-end)
-
-CreateSlider("Скорость полёта", 10, 200, "FlySpeed", function(val) end)
-
-CreateToggle("Noclip", "👻", "N", "Noclip", function(state)
-    if not state then
-        pcall(function()
-            local char = Player.Character
-            if char and char.Parent then
-                for part, col in pairs(OriginalCollisions) do
-                    if part and part.Parent then part.CanCollide = col end
-                end
-            end
-            OriginalCollisions = {}
-        end)
-    end
-end)
-
-CreateToggle("SpeedHack", "⚡", "V", "Speed", function(state)
-    pcall(function()
-        local _, _, hum = GetCharData()
-        if hum then hum.WalkSpeed = state and States.SpeedValue or 16 end
-    end)
-end)
-
-CreateSlider("Множитель скорости", 16, 120, "SpeedValue", function(val)
-    pcall(function()
-        if States.Speed then
-            local _, _, hum = GetCharData()
-            if hum then hum.WalkSpeed = val end
-        end
-    end)
-end)
-
-CreateResetBtn()
-
-local dragging, dragInput, dragStart, startPos
-TopBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-TopBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
+MakeDraggable(MainFrame, TopBar)
 
 CloseBtn.MouseButton1Click:Connect(function()
-    pcall(function() ScreenGui:Destroy() end)
-    if ToggleFuncs["Reset"] then ToggleFuncs["Reset"]() end
+	ScreenGui:Destroy()
 end)
 
-local OriginalSize = UDim2.new(0.85, 0, 0.6, 0)
 MinBtn.MouseButton1Click:Connect(function()
-    States.MenuMinimized = true
-    MinBtn.Visible = false
-    MaxBtn.Visible = true
-    Container.Visible = false
-    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0.85, 0, 0, 50)}):Play()
+	MainFrame.Size = UDim2.new(0, 300, 0, 40)
+	MinBtn.Visible = false
+	MaxBtn.Visible = true
 end)
 
 MaxBtn.MouseButton1Click:Connect(function()
-    States.MenuMinimized = false
-    MaxBtn.Visible = false
-    MinBtn.Visible = true
-    local tw = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = OriginalSize})
-    tw:Play()
-    tw.Completed:Connect(function()
-        if not States.MenuMinimized then Container.Visible = true end
-    end)
+	MainFrame.Size = UDim2.new(0, 300, 0, 440)
+	MaxBtn.Visible = false
+	MinBtn.Visible = true
 end)
 
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Parent = MainFrame
+Scroll.Active = true
+Scroll.BackgroundTransparency = 1
+Scroll.Position = UDim2.new(0, 0, 0, 40)
+Scroll.Size = UDim2.new(1, 0, 1, -40)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 500)
+Scroll.ScrollBarThickness = 2
+Scroll.UIListLayout = Instance.new("UIListLayout")
+Scroll.UIListLayout.Parent = Scroll
+Scroll.UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+Scroll.UIListLayout.Padding = UDim.new(0, 12)
+Scroll.UIPadding = Instance.new("UIPadding")
+Scroll.UIPadding.Parent = Scroll
+Scroll.UIPadding.PaddingLeft = UDim.new(0, 10)
+Scroll.UIPadding.PaddingRight = UDim.new(0, 10)
+Scroll.UIPadding.PaddingTop = UDim.new(0, 5)
+
+local FloatingPositions = {}
+local Binds = { Fly = Enum.KeyCode.F, Noclip = Enum.KeyCode.N, Speed = Enum.KeyCode.V, Reset = Enum.KeyCode.X }
+local States = { Fly = false, Noclip = false, Speed = false, FPS = false }
+
+local flySpeed = 50
+local bg, bv
+local NoclipParts = {}
+local speedValue = 40
+local oldLighting = {}
+
+local function createRow(name, parent)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, 0, 0, 48)
+	frame.BackgroundTransparency = 1
+	frame.Parent = parent
+	return frame
+end
+
+local function createToggle(name, text, parent, hasPlus, plusColor)
+	local row = createRow(name, parent)
+	
+	local toggleBtn = Instance.new("TextButton")
+	toggleBtn.Size = UDim2.new(hasPlus and 0.55 or 0.8, 0, 1, 0)
+	toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+	toggleBtn.Text = text .. " [Выкл]"
+	toggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+	toggleBtn.Font = Enum.Font.Gotham
+	toggleBtn.TextSize = 14
+	toggleBtn.Parent = row
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = toggleBtn
+
+	local plusBtn, bindBtn
+	if hasPlus then
+		plusBtn = Instance.new("TextButton")
+		plusBtn.Size = UDim2.new(0, 30, 0, 30)
+		plusBtn.Position = UDim2.new(0.6, 0, 0.5, -15)
+		plusBtn.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
+		plusBtn.Text = "➕"
+		plusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		plusBtn.Font = Enum.Font.GothamBold
+		plusBtn.TextSize = 14
+		plusBtn.Parent = row
+		local pCorner = Instance.new("UICorner")
+		pCorner.CornerRadius = UDim.new(1, 0)
+		pCorner.Parent = plusBtn
+
+		bindBtn = Instance.new("TextButton")
+		bindBtn.Size = UDim2.new(0, 40, 0, 30)
+		bindBtn.Position = UDim2.new(0.75, 0, 0.5, -15)
+		bindBtn.BackgroundTransparency = 1
+		bindBtn.Text = "[" .. Binds[name].Name .. "]"
+		bindBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+		bindBtn.Font = Enum.Font.Gotham
+		bindBtn.TextSize = 14
+		bindBtn.Parent = row
+	end
+
+	return toggleBtn, plusBtn, bindBtn
+end
+
+local function createSlider(name, min, max, default, parent, callback)
+	local frame = createRow(name.."Slider", parent)
+	frame.Size = UDim2.new(1, 0, 0, 30)
+	
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0.3, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = "Скорость: " .. default
+	label.TextColor3 = Color3.fromRGB(200, 200, 200)
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 12
+	label.Parent = frame
+
+	local sliderBg = Instance.new("Frame")
+	sliderBg.Size = UDim2.new(0.65, 0, 0.1, 0)
+	sliderBg.Position = UDim2.new(0.35, 0, 0.45, 0)
+	sliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+	sliderBg.Parent = frame
+	local bgCorner = Instance.new("UICorner")
+	bgCorner.Parent = sliderBg
+
+	local sliderFill = Instance.new("Frame")
+	sliderFill.Size = UDim2.new((default - min)/(max - min), 0, 1, 0)
+	sliderFill.BackgroundColor3 = Color3.fromRGB(139, 92, 246)
+	sliderFill.Parent = sliderBg
+	local fillCorner = Instance.new("UICorner")
+	fillCorner.Parent = sliderFill
+
+	local sliderBtn = Instance.new("TextButton")
+	sliderBtn.Size = UDim2.new(0, 14, 0, 14)
+	sliderBtn.Position = UDim2.new((default - min)/(max - min), -7, 0.5, -7)
+	sliderBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	sliderBtn.Text = ""
+	sliderBtn.Parent = sliderBg
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(1, 0)
+	btnCorner.Parent = sliderBtn
+
+	local dragging = false
+	sliderBtn.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local mousePos = input.Position.X
+			local bounds = sliderBg.AbsoluteSize.X
+			local pos = math.clamp(mousePos - sliderBg.AbsolutePosition.X, 0, bounds)
+			local percent = pos / bounds
+			sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+			sliderBtn.Position = UDim2.new(percent, -7, 0.5, -7)
+			local val = math.floor(min + ((max - min) * percent))
+			label.Text = "Скорость: " .. val
+			callback(val)
+		end
+	end)
+end
+
+local flyToggle, flyPlus, flyBind = createToggle("Fly", "🚀 FLY", Scroll, true, Color3.fromRGB(139, 92, 246))
+createSlider("Fly", 10, 200, 50, Scroll, function(val) flySpeed = val end)
+
+local ncToggle, ncPlus, ncBind = createToggle("Noclip", "👻 NOCLIP", Scroll, true, Color3.fromRGB(59, 130, 246))
+
+local speedToggle, speedPlus, speedBind = createToggle("Speed", "⚡ SPEED", Scroll, true, Color3.fromRGB(245, 158, 11))
+createSlider("Speed", 16, 120, 40, Scroll, function(val) speedValue = val; if States.Speed and humanoid then humanoid.WalkSpeed = speedValue end end)
+
+local fpsToggle = createToggle("FPS", "🎮 BUST FPS", Scroll, false)
+local resetToggle = createToggle("Reset", "СБРОС НАСТРОЕК", Scroll, false)
+resetToggle.Size = UDim2.new(1, 0, 1, 0)
+
+local floatingFrames = {}
+
+local function toggleLogic(name, state)
+	States[name] = state
+	local text = ""
+	local toggleBtn = nil
+	if name == "Fly" then toggleBtn = flyToggle; text = "🚀 FLY"
+	elseif name == "Noclip" then toggleBtn = ncToggle; text = "👻 NOCLIP"
+	elseif name == "Speed" then toggleBtn = speedToggle; text = "⚡ SPEED"
+	elseif name == "FPS" then toggleBtn = fpsToggle; text = "🎮 BUST FPS"
+	end
+	
+	if toggleBtn then
+		if state then
+			toggleBtn.Text = text .. " [Вкл]"
+			toggleBtn.TextColor3 = Color3.fromRGB(16, 185, 129)
+		else
+			toggleBtn.Text = text .. " [Выкл]"
+			toggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+		end
+	end
+
+	if floatingFrames[name] then
+		if state then
+			floatingFrames[name].BackgroundColor3 = Color3.fromRGB(16, 185, 129)
+			floatingFrames[name].Text = "✅ " .. string.gsub(text, "🚀 |👻 |⚡ |🎮 ", "")
+		else
+			if name == "Fly" then floatingFrames[name].BackgroundColor3 = Color3.fromRGB(139, 92, 246)
+			elseif name == "Noclip" then floatingFrames[name].BackgroundColor3 = Color3.fromRGB(59, 130, 246)
+			elseif name == "Speed" then floatingFrames[name].BackgroundColor3 = Color3.fromRGB(245, 158, 11)
+			end
+			floatingFrames[name].Text = string.gsub(text, "🚀 |👻 |⚡ |🎮 ", "")
+		end
+	end
+
+	pcall(function()
+		if name == "Fly" then
+			if state then
+				if not character or not rootPart or not humanoid then return end
+				humanoid.PlatformStand = true
+				bg = Instance.new("BodyGyro")
+				bg.P = 9e4
+				bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+				bg.cframe = rootPart.CFrame
+				bg.Parent = rootPart
+				bv = Instance.new("BodyVelocity")
+				bv.velocity = Vector3.new(0, 0, 0)
+				bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+				bv.Parent = rootPart
+			else
+				if humanoid then humanoid.PlatformStand = false end
+				if bg then bg:Destroy() end
+				if bv then bv:Destroy() end
+			end
+		elseif name == "Noclip" then
+			if not state then
+				for _, data in pairs(NoclipParts) do
+					if data.part and data.part.Parent then
+						data.part.CanCollide = data.collide
+					end
+				end
+				NoclipParts = {}
+			end
+		elseif name == "Speed" then
+			if state then
+				if humanoid then humanoid.WalkSpeed = speedValue end
+			else
+				if humanoid then humanoid.WalkSpeed = 16 end
+			end
+		elseif name == "FPS" then
+			if state then
+				oldLighting.Technology = Lighting.Technology
+				oldLighting.GlobalShadows = Lighting.GlobalShadows
+				local bloom = Lighting:FindFirstChildOfClass("BloomEffect")
+				oldLighting.Bloom = bloom and bloom.Enabled or false
+				local atmos = Lighting:FindFirstChildOfClass("Atmosphere")
+				oldLighting.Atmosphere = atmos
+				oldLighting.ClockTime = Lighting.ClockTime
+				oldLighting.FOV = Workspace.CurrentCamera.FieldOfView
+
+				pcall(function() Lighting.Technology = Enum.Technology.Compatibility end)
+				pcall(function() Lighting.GlobalShadows = false end)
+				pcall(function() Lighting.ClockTime = 12 end)
+				if bloom then pcall(function() bloom.Enabled = false end) end
+				if atmos then pcall(function() atmos.Parent = nil end) end
+				pcall(function() Workspace.CurrentCamera.FieldOfView = 70 end)
+
+				task.spawn(function()
+					for _, v in pairs(Workspace:GetDescendants()) do
+						pcall(function()
+							if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+								v.Enabled = false
+							elseif v:IsA("Texture") or v:IsA("Decal") then
+								v.Texture = ""
+							end
+						end)
+					end
+				end)
+			else
+				pcall(function() Lighting.Technology = oldLighting.Technology or Enum.Technology.ShadowMap end)
+				pcall(function() Lighting.GlobalShadows = oldLighting.GlobalShadows or true end)
+				pcall(function() Lighting.ClockTime = oldLighting.ClockTime or 14 end)
+				local bloom = Lighting:FindFirstChildOfClass("BloomEffect")
+				if bloom then pcall(function() bloom.Enabled = oldLighting.Bloom end) end
+				if oldLighting.Atmosphere then pcall(function() oldLighting.Atmosphere.Parent = Lighting end) end
+				pcall(function() Workspace.CurrentCamera.FieldOfView = oldLighting.FOV or 70 end)
+			end
+		end
+	end)
+end
+
+flyToggle.MouseButton1Click:Connect(function() toggleLogic("Fly", not States.Fly) end)
+ncToggle.MouseButton1Click:Connect(function() toggleLogic("Noclip", not States.Noclip) end)
+speedToggle.MouseButton1Click:Connect(function() toggleLogic("Speed", not States.Speed) end)
+fpsToggle.MouseButton1Click:Connect(function() toggleLogic("FPS", not States.FPS) end)
+
+resetToggle.MouseButton1Click:Connect(function()
+	toggleLogic("Fly", false)
+	toggleLogic("Noclip", false)
+	toggleLogic("Speed", false)
+	toggleLogic("FPS", false)
+end)
+
+local function spawnFloating(name, color, text)
+	if floatingFrames[name] then
+		floatingFrames[name]:Destroy()
+		floatingFrames[name] = nil
+		return
+	end
+
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 65, 0, 65)
+	btn.Position = FloatingPositions[name] or UDim2.new(0.5, -32, 0.5, -32)
+	btn.BackgroundColor3 = States[name] and Color3.fromRGB(16, 185, 129) or color
+	btn.BackgroundTransparency = 0.15
+	btn.Text = (States[name] and "✅ " or "") .. text
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 16
+	btn.Parent = ScreenGui
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = btn
+
+	local shadow = Instance.new("ImageLabel")
+	shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	shadow.BackgroundTransparency = 1
+	shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+	shadow.Size = UDim2.new(1, 30, 1, 30)
+	shadow.Image = "rbxassetid://1316045217"
+	shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+	shadow.ImageTransparency = 0.6
+	shadow.ZIndex = -1
+	shadow.Parent = btn
+
+	local dragging = false
+	local dragStart, startPos
+	local clickTime = 0
+
+	btn.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = btn.Position
+			clickTime = tick()
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if dragging then
+				dragging = false
+				FloatingPositions[name] = btn.Position
+				if tick() - clickTime < 0.2 then
+					toggleLogic(name, not States[name])
+				end
+			end
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			local vpSize = Workspace.CurrentCamera.ViewportSize
+			local newX = math.clamp(startPos.X.Offset + delta.X, 0, vpSize.X - 65)
+			local newY = math.clamp(startPos.Y.Offset + delta.Y, 0, vpSize.Y - 65)
+			btn.Position = UDim2.new(0, newX, 0, newY)
+		end
+	end)
+
+	floatingFrames[name] = btn
+end
+
+flyPlus.MouseButton1Click:Connect(function() spawnFloating("Fly", Color3.fromRGB(139, 92, 246), "FLY") end)
+ncPlus.MouseButton1Click:Connect(function() spawnFloating("Noclip", Color3.fromRGB(59, 130, 246), "NOCLIP") end)
+speedPlus.MouseButton1Click:Connect(function() spawnFloating("Speed", Color3.fromRGB(245, 158, 11), "SPEED") end)
+
+local function bindKey(name, btn)
+	local listening = false
+	btn.MouseButton1Click:Connect(function()
+		if listening then return end
+		listening = true
+		btn.Text = "[...]"
+		local conn
+		conn = UserInputService.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Keyboard then
+				Binds[name] = input.KeyCode
+				btn.Text = "[" .. input.KeyCode.Name .. "]"
+				listening = false
+				conn:Disconnect()
+			end
+		end)
+	end)
+end
+bindKey("Fly", flyBind)
+bindKey("Noclip", ncBind)
+bindKey("Speed", speedBind)
+
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    pcall(function()
-        if input.KeyCode == Enum.KeyCode.F then
-            if ToggleFuncs["Fly"] then ToggleFuncs["Fly"](not States.Fly) end
-        elseif input.KeyCode == Enum.KeyCode.N then
-            if ToggleFuncs["Noclip"] then ToggleFuncs["Noclip"](not States.Noclip) end
-        elseif input.KeyCode == Enum.KeyCode.V then
-            if ToggleFuncs["Speed"] then ToggleFuncs["Speed"](not States.Speed) end
-        elseif input.KeyCode == Enum.KeyCode.X then
-            if ToggleFuncs["Reset"] then ToggleFuncs["Reset"]() end
-        end
-    end)
+	if gameProcessed then return end
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		if input.KeyCode == Binds.Fly then toggleLogic("Fly", not States.Fly)
+		elseif input.KeyCode == Binds.Noclip then toggleLogic("Noclip", not States.Noclip)
+		elseif input.KeyCode == Binds.Speed then toggleLogic("Speed", not States.Speed)
+		elseif input.KeyCode == Binds.Reset then
+			toggleLogic("Fly", false)
+			toggleLogic("Noclip", false)
+			toggleLogic("Speed", false)
+			toggleLogic("FPS", false)
+		end
+	end
 end)
 
 RunService.Heartbeat:Connect(function()
-    pcall(function()
-        local char, hrp, hum = GetCharData()
-        if not char or not hrp or not hum then return end
-        
-        if States.Fly and BV and BG then
-            if hum.Health <= 0 then 
-                if ToggleFuncs["Fly"] then ToggleFuncs["Fly"](false) end
-                return 
-            end
-            BV.Velocity = Camera.CFrame.LookVector * States.FlySpeed
-            BG.CFrame = Camera.CFrame
-        end
-        
-        if States.Speed then
-            hum.WalkSpeed = States.SpeedValue
-        end
-    end)
+	pcall(function()
+		if States.Fly and character and humanoid and rootPart and bg and bv then
+			local cam = Workspace.CurrentCamera
+			local moveVector = Vector3.new(0,0,0)
+			
+			local s, ctrl = pcall(function() return require(lplr.PlayerScripts:WaitForChild("PlayerModule"):WaitForChild("ControlModule")) end)
+			if s and ctrl then
+				moveVector = ctrl:GetMoveVector()
+			else
+				if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0,0,-1) end
+				if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0,0,1) end
+				if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector + Vector3.new(-1,0,0) end
+				if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Vector3.new(1,0,0) end
+			end
+
+			local flyVelocity = Vector3.new(0,0,0)
+			if moveVector.Z < 0 then flyVelocity = flyVelocity + cam.CFrame.LookVector end
+			if moveVector.Z > 0 then flyVelocity = flyVelocity - cam.CFrame.LookVector end
+			if moveVector.X < 0 then flyVelocity = flyVelocity - cam.CFrame.RightVector end
+			if moveVector.X > 0 then flyVelocity = flyVelocity + cam.CFrame.RightVector end
+
+			if flyVelocity.Magnitude > 0 then
+				bv.velocity = flyVelocity.Unit * flySpeed
+			else
+				bv.velocity = Vector3.new(0,0,0)
+			end
+			bg.cframe = cam.CFrame
+		end
+	end)
 end)
 
 RunService.Stepped:Connect(function()
-    pcall(function()
-        if States.Noclip then
-            local char = Player.Character
-            if char and char.Parent then
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then
-                        if OriginalCollisions[v] == nil then
-                            OriginalCollisions[v] = v.CanCollide
-                        end
-                        v.CanCollide = false
-                    end
-                end
-            end
-        end
-    end)
+	pcall(function()
+		if States.Noclip and character then
+			for _, v in pairs(character:GetDescendants()) do
+				if v:IsA("BasePart") then
+					if v.CanCollide then
+						local found = false
+						for _, data in pairs(NoclipParts) do
+							if data.part == v then found = true break end
+						end
+						if not found then table.insert(NoclipParts, {part = v, collide = v.CanCollide}) end
+					end
+					v.CanCollide = false
+				end
+			end
+		end
+	end)
 end)
 
-Player.CharacterAdded:Connect(function(char)
-    pcall(function()
-        local hrp = char:WaitForChild("HumanoidRootPart", 5)
-        local hum = char:WaitForChild("Humanoid", 5)
-        if not hrp or not hum then return end
-        
-        task.wait(0.5)
-        if States.Fly then EnableFly() end
-        if States.Speed then hum.WalkSpeed = States.SpeedValue end
-    end)
+lplr.CharacterAdded:Connect(function(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid")
+	rootPart = char:WaitForChild("HumanoidRootPart")
+	
+	if States.Fly then
+		toggleLogic("Fly", false)
+		task.wait(0.5)
+		toggleLogic("Fly", true)
+	end
+	if States.Speed then
+		task.wait(0.5)
+		humanoid.WalkSpeed = speedValue
+	end
 end)
 
-Player.CharacterRemoving:Connect(function()
-    pcall(function()
-        if BV then BV:Destroy(); BV = nil end
-        if BG then BG:Destroy(); BG = nil end
-        OriginalCollisions = {}
-    end)
-end)
+print("SOFIYA <3 полностью загружена!")
